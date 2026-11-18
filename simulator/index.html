@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>espMoto LVGL Simulator • M5Stack StopWatch C152</title>
+  <style>
+    :root {
+      --bg: #0b0d11;
+      --card: #141821;
+      --border: #232938;
+      --text: #eef1f6;
+      --muted: #8b93a7;
+      --orange: #ff5500;
+      --orange-dim: rgba(255, 85, 0, 0.16);
+      --green: #00e676;
+      --red: #ff1744;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: radial-gradient(circle at 20% 10%, #171c28 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(11, 13, 17, 0.85);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 12px var(--orange);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+
+    .brand span {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pill.ok { border-color: rgba(0, 230, 118, 0.4); color: var(--green); }
+    .pill.err { border-color: rgba(255, 23, 68, 0.5); color: var(--red); }
+
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 520px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .watch-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      position: sticky;
+      top: 76px;
+    }
+
+    .bezel-outer {
+      position: relative;
+      width: 492px;
+      height: 492px;
+      max-width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      padding: 13px;
+      background: linear-gradient(145deg, #2b3140, #0d1016);
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.65),
+        inset 0 2px 3px rgba(255, 255, 255, 0.14),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .bezel-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #000;
+      box-shadow: inset 0 0 0 2px #050608;
+    }
+
+    #screen {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: pointer;
+      user-select: none;
+      touch-action: none;
+    }
+
+    @media (max-width: 1040px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 16px;
+      }
+      main {
+        grid-template-columns: 1fr;
+        padding: 14px;
+        gap: 16px;
+      }
+      .watch-panel {
+        position: static;
+        padding: 16px;
+      }
+      .bezel-outer {
+        width: min(492px, calc(100vw - 64px));
+        height: min(492px, calc(100vw - 64px));
+        padding: 3%;
+      }
+    }
+
+    .glare {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.06), transparent 45%);
+    }
+
+    .hw-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 100%;
+    }
+
+    button {
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #1b2130;
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.06s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover { border-color: #3a445d; background: #22293b; }
+    button:active { transform: translateY(1px); }
+    button.primary {
+      background: var(--orange);
+      border-color: var(--orange);
+      color: #fff;
+    }
+    button.primary:hover { background: #ff6a1f; }
+    button.accent-outline {
+      border-color: rgba(255, 85, 0, 0.45);
+      background: var(--orange-dim);
+      color: #ff8647;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      margin: 0;
+    }
+
+    .controls-col {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      color: var(--muted);
+    }
+
+    .toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    label.toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--orange);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .field-label strong {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--orange);
+      cursor: pointer;
+    }
+
+    input[type="text"], select {
+      width: 100%;
+      padding: 9px 11px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: #0d1017;
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+    }
+
+    input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: var(--orange);
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .preset-row button {
+      padding: 6px 11px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .ble-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .ble-row input { flex: 1; font-family: monospace; }
+
+    pre#buildLog {
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #090b10;
+      border: 1px solid var(--border);
+      color: #b7c0d3;
+      font-size: 11px;
+      max-height: 120px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="dot"></div>
+      <div>
+        <h1>espMoto • LVGL 9.2 SIMULATOR</h1>
+        <span>M5Stack StopWatch (C152) • 466×466 Round AMOLED • Motorcycle Navigation &amp; OBD Telemetry</span>
+      </div>
+    </div>
+    <div class="status-strip">
+      <span class="pill" id="pagePill">PAGE: NAVIGATION</span>
+      <span class="pill" id="fpsPill">-- FPS</span>
+      <span class="pill ok" id="buildPill">BUILD OK</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="watch-panel">
+      <div class="bezel-outer">
+        <div class="bezel-inner">
+          <canvas id="screen" width="466" height="466"></canvas>
+          <div class="glare"></div>
+        </div>
+      </div>
+
+      <div class="hw-buttons">
+        <button id="btnA" class="primary">Btn A • Switch Page</button>
+        <button id="btnB">Btn B • Demo Mode</button>
+        <button id="btnSettings">Settings (10s Hold)</button>
+        <button id="btnResetPair" class="accent-outline">Reset Pairing (QR)</button>
+        <button id="btnCompletePair">Simulate Pair OK</button>
+        <button id="btnRebuild" class="accent-outline">Hot-Rebuild UI</button>
+      </div>
+      <p class="hint" id="pairingPayloadHint" style="font-family: monospace; font-size: 11px; word-break: break-all;"></p>
+      <p class="hint">Click/tap directly on the 466×466 AMOLED canvas to trigger LVGL touch events.</p>
+    </section>
+
+    <section class="controls-col">
+      <div class="card">
+        <div class="card-head">
+          <h2>Motorcycle Telemetry (OBD-II / ELM327)</h2>
+          <div class="toggles">
+            <label class="toggle"><input type="checkbox" id="demoMode" /> Demo Auto-Cycle</label>
+            <label class="toggle"><input type="checkbox" id="obdConnected" /> OBD Connected</label>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <div class="field-label"><span>Engine RPM</span><strong id="rpmVal">2450 RPM</strong></div>
+            <input type="range" id="rpm" min="0" max="7000" step="50" />
+          </div>
+          <div class="field">
+            <div class="field-label"><span>Speed</span><strong id="speedVal">68 km/h</strong></div>
+            <input type="range" id="speedKmh" min="0" max="180" step="1" />
+          </div>
+          <div class="field">
+            <div class="field-label"><span>Gear</span><strong id="gearVal">3</strong></div>
+            <input type="range" id="gear" min="0" max="5" step="1" />
+          </div>
+          <div class="field">
+            <div class="field-label"><span>Engine Temp</span><strong id="tempVal">92 °C</strong></div>
+            <input type="range" id="engineTempC" min="20" max="150" step="1" />
+          </div>
+          <div class="field">
+            <div class="field-label"><span>Battery Voltage</span><strong id="voltVal">13.8 V</strong></div>
+            <input type="range" id="batteryVolts" min="11.0" max="14.8" step="0.1" />
+          </div>
+        </div>
+
+        <div class="preset-row">
+          <button type="button" onclick="applyTelemetryPreset(1400, 0, 0, 52, 14.0)">Cold Warmup</button>
+          <button type="button" onclick="applyTelemetryPreset(1100, 0, 0, 92, 13.7)">Idle (N)</button>
+          <button type="button" onclick="applyTelemetryPreset(3200, 78, 4, 96, 14.1)">Highway Cruise</button>
+          <button type="button" onclick="applyTelemetryPreset(2200, 35, 2, 112, 13.5)">Warm Traffic</button>
+          <button type="button" onclick="applyTelemetryPreset(6150, 142, 5, 126, 11.7)">Redline / Hot Alert</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>OpenStreetMap Navigation &amp; BLE Protocol</h2>
+          <div class="toggles">
+            <label class="toggle"><input type="checkbox" id="navActive" /> Nav Active</label>
+            <label class="toggle"><input type="checkbox" id="phoneConnected" /> Phone BLE OK</label>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <div class="field-label"><span>Maneuver ID</span></div>
+            <select id="maneuver">
+              <option value="0">0 • NONE</option>
+              <option value="1">1 • STRAIGHT</option>
+              <option value="2">2 • TURN_RIGHT</option>
+              <option value="3">3 • TURN_LEFT</option>
+              <option value="4">4 • SLIGHT_RIGHT</option>
+              <option value="5">5 • SLIGHT_LEFT</option>
+              <option value="6">6 • SHARP_RIGHT</option>
+              <option value="7">7 • SHARP_LEFT</option>
+              <option value="8">8 • UTURN_LEFT</option>
+              <option value="9">9 • UTURN_RIGHT</option>
+              <option value="10">10 • ROUNDABOUT</option>
+              <option value="11">11 • MERGE</option>
+              <option value="12">12 • DESTINATION</option>
+              <option value="13">13 • ROUNDABOUT_EXIT_1</option>
+              <option value="14">14 • ROUNDABOUT_EXIT_2</option>
+              <option value="15">15 • ROUNDABOUT_EXIT_3</option>
+              <option value="16">16 • ROUNDABOUT_EXIT_4</option>
+              <option value="17">17 • ROUNDABOUT_EXIT_5</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="field-label"><span>Distance</span></div>
+            <input type="text" id="distance" placeholder="250 m" />
+          </div>
+          <div class="field">
+            <div class="field-label"><span>Street Name</span></div>
+            <input type="text" id="street" placeholder="Passeig de Gràcia" />
+          </div>
+          <div class="field">
+            <div class="field-label"><span>ETA</span></div>
+            <input type="text" id="eta" placeholder="18:15" />
+          </div>
+        </div>
+
+        <div class="ble-row">
+          <input type="text" id="blePayload" value="1|2|250 m|Passeig de Gràcia|18:15" />
+          <button type="button" id="btnBle" class="primary">Send BLE Write</button>
+        </div>
+
+        <div class="preset-row">
+          <button type="button" onclick="sendBle('1|2|250 m|Passeig de Gràcia|18:15')">Turn Right</button>
+          <button type="button" onclick="sendBle('1|3|120 m|Gran Via de les Corts|18:19')">Turn Left</button>
+          <button type="button" onclick="sendBle('1|13|180 m|Exit 1 • Via Laietana|12:25')">Rbt Exit 1</button>
+          <button type="button" onclick="sendBle('1|10|400 m|Exit 2 • Plaça Catalunya|18:22')">Rbt Exit 2 (Catalunya)</button>
+          <button type="button" onclick="sendBle('1|10|45 m|Exit 3 • Carrer d\'Aragó|12:28')">Rbt Exit 3 (Aragó)</button>
+          <button type="button" onclick="sendBle('1|16|90 m|Exit 4 • Av. del Paral·lel|12:31')">Rbt Exit 4</button>
+          <button type="button" onclick="sendBle('1|8|80 m|Avinguda Diagonal|18:25')">U-Turn</button>
+          <button type="button" onclick="sendBle('1|11|650 m|Ronda Litoral (B-10)|18:40')">Merge</button>
+          <button type="button" onclick="sendBle('1|12|30 m|Arc de Triomf|18:45')">Arrived</button>
+          <button type="button" onclick="sendBle('0|0|--|No active route|--:--')">Stop Nav (RPM)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Firmware UI Compiler Output</h2>
+          <span style="font-size:12px;color:var(--muted)" id="buildTime">--:--:--</span>
+        </div>
+        <pre id="buildLog">Ready.</pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const SIZE = 466;
+    const canvas = document.getElementById("screen");
+    const ctx = canvas.getContext("2d");
+    const imgData = ctx.createImageData(SIZE, SIZE);
+
+    let frameBusy = false;
+    let frames = 0;
+    let lastFpsAt = performance.now();
+    let isEditingInput = false;
+
+    const $ = (id) => document.getElementById(id);
+
+    async function postJson(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json();
+    }
+
+    function updateUiFromState(s) {
+      $("pagePill").textContent = `PAGE: ${s.pageName || (["NAVIGATION", "TELEMETRY", "SETTINGS", "PAIRING"][s.page] || "TELEMETRY")}`;
+      if ($("pairingPayloadHint") && s.pairingPayload) {
+        $("pairingPayloadHint").textContent = `QR: ${s.pairingPayload}`;
+      }
+      const bp = $("buildPill");
+      bp.textContent = s.buildStatus === "ok" ? "BUILD OK" : "BUILD ERROR";
+      bp.className = `pill ${s.buildStatus === "ok" ? "ok" : "err"}`;
+      $("buildTime").textContent = s.buildTime || "--:--:--";
+      if (s.buildOutput) $("buildLog").textContent = s.buildOutput;
+
+      $("demoMode").checked = !!s.demoMode;
+      $("obdConnected").checked = !!s.obdConnected;
+      $("navActive").checked = !!s.navActive;
+      $("phoneConnected").checked = !!s.phoneConnected;
+
+      $("rpm").value = s.rpm;
+      $("rpmVal").textContent = `${s.rpm} RPM`;
+      $("speedKmh").value = s.speedKmh;
+      $("speedVal").textContent = `${s.speedKmh} km/h`;
+      $("gear").value = s.gear;
+      $("gearVal").textContent = s.gear === 0 ? "N" : String(s.gear);
+      $("engineTempC").value = s.engineTempC;
+      $("tempVal").textContent = `${s.engineTempC} °C`;
+      $("batteryVolts").value = Number(s.batteryVolts).toFixed(1);
+      $("voltVal").textContent = `${Number(s.batteryVolts).toFixed(1)} V`;
+
+      if (!isEditingInput) {
+        $("maneuver").value = String(s.maneuver);
+        $("distance").value = s.distance;
+        $("street").value = s.street;
+        $("eta").value = s.eta;
+      }
+    }
+
+    async function syncState() {
+      try {
+        const res = await fetch("/api/state", { cache: "no-store" });
+        if (res.ok) updateUiFromState(await res.json());
+      } catch (_) {}
+    }
+
+    async function pumpFrame() {
+      if (!frameBusy) {
+        frameBusy = true;
+        try {
+          const res = await fetch("/api/frame.rgba", { cache: "no-store" });
+          if (res.ok) {
+            const buf = new Uint8Array(await res.arrayBuffer());
+            if (buf.length === SIZE * SIZE * 4) {
+              imgData.data.set(buf);
+              ctx.putImageData(imgData, 0, 0);
+              frames++;
+              const now = performance.now();
+              if (now - lastFpsAt >= 1000) {
+                $("fpsPill").textContent = `${Math.round((frames * 1000) / (now - lastFpsAt))} FPS`;
+                frames = 0;
+                lastFpsAt = now;
+              }
+            }
+          }
+        } catch (_) {
+        } finally {
+          frameBusy = false;
+        }
+      }
+      setTimeout(pumpFrame, 40);
+    }
+
+    function canvasCoords(ev) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.round(((ev.clientX - rect.left) / rect.width) * SIZE);
+      const y = Math.round(((ev.clientY - rect.top) / rect.height) * SIZE);
+      return { x: Math.max(0, Math.min(SIZE - 1, x)), y: Math.max(0, Math.min(SIZE - 1, y)) };
+    }
+
+    let pointerDown = false;
+    canvas.addEventListener("pointerdown", async (ev) => {
+      pointerDown = true;
+      const { x, y } = canvasCoords(ev);
+      await postJson("/api/touch", { x, y, pressed: true });
+    });
+
+    canvas.addEventListener("pointerup", async (ev) => {
+      if (!pointerDown) return;
+      pointerDown = false;
+      const { x, y } = canvasCoords(ev);
+      const res = await postJson("/api/touch", { x, y, pressed: false });
+      if (typeof res.page === "number") {
+        const pageNames = ["NAVIGATION", "TELEMETRY", "SETTINGS", "PAIRING"];
+        $("pagePill").textContent = `PAGE: ${pageNames[res.page] || "TELEMETRY"}`;
+      }
+    });
+
+    canvas.addEventListener("pointerleave", async (ev) => {
+      if (!pointerDown) return;
+      pointerDown = false;
+      const { x, y } = canvasCoords(ev);
+      await postJson("/api/touch", { x, y, pressed: false });
+    });
+
+    $("btnA").addEventListener("click", async () => {
+      updateUiFromState(await postJson("/api/state", { action: "btnA" }));
+    });
+
+    $("btnB").addEventListener("click", async () => {
+      updateUiFromState(await postJson("/api/state", { action: "btnB" }));
+    });
+
+    $("btnSettings").addEventListener("click", async () => {
+      updateUiFromState(await postJson("/api/state", { action: "openSettings" }));
+    });
+
+    $("btnResetPair").addEventListener("click", async () => {
+      updateUiFromState(await postJson("/api/state", { action: "resetPairing" }));
+    });
+
+    $("btnCompletePair").addEventListener("click", async () => {
+      updateUiFromState(await postJson("/api/state", { action: "completePairing" }));
+    });
+
+    $("btnRebuild").addEventListener("click", async () => {
+      const btn = $("btnRebuild");
+      btn.disabled = true;
+      btn.textContent = "Rebuilding...";
+      try {
+        const res = await postJson("/api/rebuild", {});
+        $("buildLog").textContent = res.output || "";
+        await syncState();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Hot-Rebuild UI";
+      }
+    });
+
+    for (const id of ["demoMode", "obdConnected", "navActive", "phoneConnected"]) {
+      $(id).addEventListener("change", async (e) => {
+        updateUiFromState(await postJson("/api/state", { [id]: e.target.checked }));
+      });
+    }
+
+    for (const id of ["rpm", "speedKmh", "gear", "engineTempC", "batteryVolts"]) {
+      $(id).addEventListener("input", async (e) => {
+        const val = id === "batteryVolts" ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+        const body = { [id]: val };
+        if (["rpm", "speedKmh", "gear"].includes(id)) body.demoMode = false;
+        updateUiFromState(await postJson("/api/state", body));
+      });
+    }
+
+    for (const id of ["distance", "street", "eta"]) {
+      $(id).addEventListener("focus", () => { isEditingInput = true; });
+      $(id).addEventListener("blur", () => { isEditingInput = false; });
+      $(id).addEventListener("input", async (e) => {
+        await postJson("/api/state", { [id]: e.target.value });
+      });
+    }
+
+    $("maneuver").addEventListener("change", async (e) => {
+      updateUiFromState(await postJson("/api/state", { maneuver: parseInt(e.target.value, 10), navActive: true }));
+    });
+
+    $("btnBle").addEventListener("click", () => sendBle($("blePayload").value));
+
+    async function sendBle(payload) {
+      $("blePayload").value = payload;
+      updateUiFromState(await postJson("/api/state", { blePayload: payload }));
+    }
+
+    async function applyTelemetryPreset(rpm, speedKmh, gear, engineTempC, batteryVolts) {
+      updateUiFromState(await postJson("/api/state", {
+        demoMode: false,
+        rpm,
+        speedKmh,
+        gear,
+        engineTempC,
+        batteryVolts,
+        page: 1
+      }));
+    }
+
+    syncState();
+    setInterval(syncState, 800);
+    pumpFrame();
+  </script>
+</body>
+</html>
