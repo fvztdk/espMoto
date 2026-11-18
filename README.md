@@ -2,6 +2,16 @@
 
 A minimalist motorcycle handlebar display built on the **M5Stack StopWatch (`C152`)** (`ESP32-S3R8`, 1.75" 466×466 round AMOLED), pairing turn-by-turn OpenStreetMap navigation from a companion Android app with live motorcycle OBD-II / ELM327 telemetry.
 
+<p align="center">
+  <img src="docs/demo.gif" alt="espMoto Live Demo" width="280" />
+</p>
+
+## Screenshots
+
+| Turn-by-Turn Navigation | Roundabout Exit | Telemetry (Cruise) | Telemetry (Redline) | QR Pairing |
+| :---: | :---: | :---: | :---: | :---: |
+| <img src="docs/nav-turn-right.png" alt="Navigation Turn Right" width="160" /> | <img src="docs/nav-roundabout.png" alt="Navigation Roundabout" width="160" /> | <img src="docs/telemetry-cruise.png" alt="Telemetry Cruise" width="160" /> | <img src="docs/telemetry-redline.png" alt="Telemetry Redline" width="160" /> | <img src="docs/pairing-qr.png" alt="QR Pairing" width="160" /> |
+
 ## Features
 1. **Turn-by-Turn Navigation (OpenStreetMap + OSRM):** Pure navigation focus with glanceable maneuver arrows (including European roundabout exit numbers & multi-exit diagrams), distance countdown, scrolling street name with European Latin diacritics support, ETA pill, and BLE connection status streamed from the Android companion app.
 2. **Motorcycle Telemetry (BLE ELM327):** 270° configurable RPM tachometer arc with amber/redline alerts, center badge (gear / speed / throttle), and configurable bottom diagnostic slots (coolant/engine temperature, battery voltage, intake temp, oil pressure, lean angle, etc.). Supports standard Euro 4/5+ ISO 15765-4 CAN, UDS Service 22, J1850 VPW, and K-Line protocols configured dynamically from the companion app.
