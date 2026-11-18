@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include "nav_state.h"
 #include "obd_config.h"
 

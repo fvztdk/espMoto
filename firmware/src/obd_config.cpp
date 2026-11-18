@@ -1,5 +1,6 @@
 #include "obd_config.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
