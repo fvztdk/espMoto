@@ -64,3 +64,12 @@ Open in browser: **http://localhost:8152** (or the `SIMULATOR_HOST` / `SIMULATOR
   <active:0|1>|<maneuver_id:0-17>|<distance>|<street>|<eta>
   ```
   Example: `1|2|250 m|Passeig de Gràcia|18:15`
+
+## Disclaimer
+This is a **hobbyist project** created for personal experimentation and educational purposes:
+- **Local Laws:** You are responsible for checking and complying with your local traffic and vehicle regulations regarding handlebar-mounted displays and navigation devices while riding.
+- **OBD-II & Vehicle Risk:** Connecting an ELM327 adapter or sending OBD-II / UDS diagnostic queries to a motorcycle's diagnostic port is done entirely at your own risk. You are solely responsible for any electrical, ECU, or mechanical damage to your motorcycle.
+
+## License
+Licensed under the [MIT License](LICENSE).
+
