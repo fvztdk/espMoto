@@ -7,6 +7,12 @@
 #include <cctype>
 #include <cstdio>
 
+// Arduino-ESP32 3.3+ releases BLE controller SRAM before setup() unless bleInUse()
+// returns true; NimBLE-Arduino 2.1.0 predates this hook.
+extern "C" bool bleInUse(void) {
+    return true;
+}
+
 namespace {
 constexpr const char* PAIR_NVS_NAMESPACE = "espmoto_pair";
 constexpr const char* PAIR_NVS_KEY_PAIRED = "paired";
