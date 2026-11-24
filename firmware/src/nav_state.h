@@ -1,6 +1,6 @@
 #pragma once
 
-#include "arduino_compat.h"
+#include <Arduino.h>
 #include "ble_protocol.h"
 
 enum class MetricId : uint8_t {
