@@ -30,6 +30,7 @@ struct NavState {
 
 struct BikeTelemetry {
     bool obdConnected = false;
+    bool simOverride = false;
     uint16_t rpm = 0;
     uint16_t speedKmh = 0;
     int16_t engineTempC = 0;
@@ -44,6 +45,7 @@ struct BikeTelemetry {
     bool absActive = false;
     uint32_t validMask = 0;
     uint32_t lastUpdateMs = 0;
+    uint32_t lastSimUpdateMs = 0;
 
     bool isValid(MetricId id) const {
         uint8_t bit = static_cast<uint8_t>(id);

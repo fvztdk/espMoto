@@ -7,6 +7,7 @@ namespace BleProtocol {
     constexpr const char* NAV_CHAR_UUID        = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
     constexpr const char* OBD_CONFIG_CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
     constexpr const char* PAIR_CHAR_UUID       = "beb5483e-36e1-4688-b7f5-ea07361b26aa";
+    constexpr const char* SIM_OBD_CHAR_UUID    = "beb5483e-36e1-4688-b7f5-ea07361b26ab";
 }
 
 // Maneuver IDs mirrored from Google Maps / Drive Assistant style

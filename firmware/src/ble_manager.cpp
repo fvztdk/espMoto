@@ -25,6 +25,7 @@ bool g_justPaired = false;
 std::string g_pairToken;
 NimBLEServer* g_server = nullptr;
 NavState* g_navState = nullptr;
+BikeTelemetry* g_telemetry = nullptr;
 ObdConfig* g_obdConfig = nullptr;
 Elm327Client* g_elmClient = nullptr;
 std::string g_cfgRxBuffer;
@@ -107,6 +108,50 @@ void parseNavPayload(const std::string& raw) {
     g_navState->lastUpdateMs = millis();
 }
 
+// Parse "<active>|<rpm>|<speedKmh>|<gear>|<engineTempC>|<batteryVolts>|<throttlePct>"
+void parseSimObdPayload(const std::string& raw) {
+    if (!g_telemetry) return;
+    if (g_elmClient && g_elmClient->isConnected()) return;
+
+    String s(raw.c_str());
+    int p1 = s.indexOf('|');
+    int p2 = s.indexOf('|', p1 + 1);
+    int p3 = s.indexOf('|', p2 + 1);
+    int p4 = s.indexOf('|', p3 + 1);
+    int p5 = s.indexOf('|', p4 + 1);
+    int p6 = s.indexOf('|', p5 + 1);
+    if (p1 < 0 || p2 < 0 || p3 < 0 || p4 < 0 || p5 < 0 || p6 < 0) {
+        return;
+    }
+
+    const bool active = (s.substring(0, p1).toInt() != 0);
+    if (!active) {
+        g_telemetry->simOverride = false;
+        g_telemetry->obdConnected = false;
+        g_telemetry->validMask = 0;
+        return;
+    }
+
+    g_telemetry->simOverride = true;
+    g_telemetry->obdConnected = true;
+    g_telemetry->rpm = static_cast<uint16_t>(constrain(s.substring(p1 + 1, p2).toInt(), 0, 20000));
+    g_telemetry->speedKmh = static_cast<uint16_t>(constrain(s.substring(p2 + 1, p3).toInt(), 0, 400));
+    g_telemetry->gear = static_cast<int8_t>(constrain(s.substring(p3 + 1, p4).toInt(), 0, 6));
+    g_telemetry->engineTempC = static_cast<int16_t>(constrain(s.substring(p4 + 1, p5).toInt(), -40, 200));
+    g_telemetry->batteryVolts = s.substring(p5 + 1, p6).toFloat();
+    g_telemetry->throttlePct = static_cast<uint8_t>(constrain(s.substring(p6 + 1).toInt(), 0, 100));
+
+    g_telemetry->setValid(MetricId::RPM, true);
+    g_telemetry->setValid(MetricId::SPEED, true);
+    g_telemetry->setValid(MetricId::GEAR, true);
+    g_telemetry->setValid(MetricId::COOLANT_TEMP, true);
+    g_telemetry->setValid(MetricId::VOLTAGE, true);
+    g_telemetry->setValid(MetricId::THROTTLE, true);
+    uint32_t now = millis();
+    g_telemetry->lastUpdateMs = now;
+    g_telemetry->lastSimUpdateMs = now;
+}
+
 void processObdConfigChunk(const std::string& chunk) {
     if (chunk.empty()) return;
 
@@ -153,6 +198,11 @@ class ServerCallbacks : public NimBLEServerCallbacks {
         if (g_navState) {
             g_navState->active = false;
         }
+        if (g_telemetry && g_telemetry->simOverride) {
+            g_telemetry->simOverride = false;
+            g_telemetry->obdConnected = false;
+            g_telemetry->validMask = 0;
+        }
         NimBLEDevice::startAdvertising();
     }
 };
@@ -194,12 +244,23 @@ class ObdConfigCharCallbacks : public NimBLECharacteristicCallbacks {
         }
     }
 };
+
+class SimObdCharCallbacks : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& /*connInfo*/) override {
+        if (!g_sessionAuthenticated) return;
+        std::string val = pCharacteristic->getValue();
+        if (!val.empty()) {
+            parseSimObdPayload(val);
+        }
+    }
+};
 } // namespace
 
 void BleManager::begin(NavState* navState, BikeTelemetry* telemetry) {
     _navState = navState;
     _telemetry = telemetry;
     g_navState = navState;
+    g_telemetry = telemetry;
 
     if (!loadObdConfigFromNvs(_obdConfig)) {
         _obdConfig = makeDefaultObdConfig();
@@ -241,6 +302,12 @@ void BleManager::begin(NavState* navState, BikeTelemetry* telemetry) {
     );
     pairChar->setCallbacks(new PairCharCallbacks());
     pairChar->setValue(g_paired ? "PAIRED" : "UNPAIRED");
+
+    NimBLECharacteristic* simObdChar = navService->createCharacteristic(
+        BleProtocol::SIM_OBD_CHAR_UUID,
+        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
+    );
+    simObdChar->setCallbacks(new SimObdCharCallbacks());
 
     navService->start();
 
