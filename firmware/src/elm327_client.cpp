@@ -258,7 +258,18 @@ void Elm327Client::loop() {
     uint32_t now = millis();
 
     if (_telemetry) {
-        _telemetry->obdConnected = g_elmConnected;
+        if (g_elmConnected) {
+            _telemetry->simOverride = false;
+            _telemetry->obdConnected = true;
+        } else if (_telemetry->simOverride) {
+            if (now - _telemetry->lastSimUpdateMs > 5000U) {
+                _telemetry->simOverride = false;
+                _telemetry->obdConnected = false;
+                _telemetry->validMask = 0;
+            }
+        } else {
+            _telemetry->obdConnected = false;
+        }
     }
 
     switch (_state) {

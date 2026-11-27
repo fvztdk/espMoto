@@ -59,21 +59,3 @@ jobs:
             firmware/.pio/build/m5stack-stopwatch/bootloader.bin
             firmware/.pio/build/m5stack-stopwatch/partitions.bin
           generate_release_notes: true
-
-  simulator:
-    name: LVGL Web Simulator
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Checkout LVGL v9.2.2 for Simulator
-        run: git clone --depth 1 --branch v9.2.2 https://github.com/lvgl/lvgl.git firmware/lib/lvgl
-
-      - name: Build simulator shared library
-        run: make -C simulator -j$(nproc)
-
-      - name: Smoke-test simulator server
-        run: |
-          python3 -m py_compile simulator/server.py
-          python3 -c "import simulator.server as s; sim = s.LvglSimulator(); snap = sim.get_state_snapshot(); assert 'page' in snap"

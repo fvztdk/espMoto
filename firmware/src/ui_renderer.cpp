@@ -24,6 +24,7 @@ constexpr uint32_t HEX_MUTED         = 0x707888;
 constexpr uint32_t HEX_GREEN         = 0x00E676;
 constexpr uint32_t HEX_BLUE          = 0x00B0FF;
 constexpr uint32_t HEX_AMBER         = 0xFFB300;
+constexpr uint32_t HEX_YELLOW        = 0xFFD600;
 constexpr uint32_t HEX_RED           = 0xFF1744;
 
 inline lv_color_t rgb(uint32_t hex) {
@@ -1079,11 +1080,6 @@ void UiRenderer::begin() {
     lv_obj_set_style_border_width(root, 0, 0);
     lv_obj_set_style_pad_all(root, 0, 0);
     lv_obj_remove_flag(root, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(root, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(root, &UiRenderer::onScreenClicked, LV_EVENT_CLICKED, this);
-    lv_obj_add_event_cb(root, &UiRenderer::onScreenTouchEvent, LV_EVENT_PRESSED, this);
-    lv_obj_add_event_cb(root, &UiRenderer::onScreenTouchEvent, LV_EVENT_PRESSING, this);
-    lv_obj_add_event_cb(root, &UiRenderer::onScreenTouchEvent, LV_EVENT_RELEASED, this);
 
     buildNavScreen(root);
     buildTelemetryScreen(root);
@@ -1095,58 +1091,8 @@ void UiRenderer::begin() {
     updatePageVisibility();
 }
 
-void UiRenderer::onScreenClicked(lv_event_t* e) {
-    auto* self = static_cast<UiRenderer*>(lv_event_get_user_data(e));
-    if (!self) return;
-    if (self->_longPressTriggered) {
-        self->_longPressTriggered = false;
-        return;
-    }
-    if (self->_page == ScreenPage::NAVIGATION || self->_page == ScreenPage::TELEMETRY) {
-        self->nextPage();
-    }
-}
-
-void UiRenderer::onScreenTouchEvent(lv_event_t* e) {
-    auto* self = static_cast<UiRenderer*>(lv_event_get_user_data(e));
-    if (!self) return;
-
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_PRESSED) {
-        self->_pressStartMs = lv_tick_get();
-        self->_isPressing = true;
-        self->_longPressTriggered = false;
-    } else if (code == LV_EVENT_PRESSING) {
-        if (self->_isPressing && !self->_longPressTriggered &&
-            (self->_page == ScreenPage::NAVIGATION || self->_page == ScreenPage::TELEMETRY)) {
-            if (lv_tick_elaps(self->_pressStartMs) >= 10000U) {
-                self->_longPressTriggered = true;
-                self->_isPressing = false;
-                self->setPage(ScreenPage::SETTINGS);
-            }
-        }
-    } else if (code == LV_EVENT_RELEASED) {
-        self->_isPressing = false;
-    }
-}
-
-void UiRenderer::onSettingsPairClicked(lv_event_t* e) {
-    auto* self = static_cast<UiRenderer*>(lv_event_get_user_data(e));
-    if (!self) return;
-    if (self->_resetPairingCb) {
-        self->_resetPairingCb(self->_resetPairingUserData);
-    }
-    self->setPage(ScreenPage::PAIRING);
-}
-
-void UiRenderer::onBackToMainClicked(lv_event_t* e) {
-    auto* self = static_cast<UiRenderer*>(lv_event_get_user_data(e));
-    if (!self) return;
-    self->setPage(self->_returnPage);
-}
-
-void UiRenderer::nextPage() {
-    setPage((_page == ScreenPage::NAVIGATION) ? ScreenPage::TELEMETRY : ScreenPage::NAVIGATION);
+void UiRenderer::returnToMain() {
+    setPage(_returnPage);
 }
 
 void UiRenderer::setPage(ScreenPage page) {
@@ -1169,11 +1115,6 @@ void UiRenderer::setPairingPayload(const char* payload, const char* subtitle) {
     if (_pairingSubtitleLabel) {
         lv_label_set_text(_pairingSubtitleLabel, (subtitle && subtitle[0] != '\0') ? subtitle : "Scan with espMoto app");
     }
-}
-
-void UiRenderer::setResetPairingCallback(ResetPairingCallback cb, void* userData) {
-    _resetPairingCb = cb;
-    _resetPairingUserData = userData;
 }
 
 void UiRenderer::updatePageVisibility() {
@@ -1205,7 +1146,8 @@ void UiRenderer::buildNavScreen(lv_obj_t* root) {
     _navStatusLabel = lv_label_create(_navStatusPill);
     lv_obj_set_style_text_font(_navStatusLabel, getEuroFont14(), 0);
     lv_obj_set_style_text_letter_space(_navStatusLabel, 1, 0);
-    lv_label_set_text(_navStatusLabel, "DEMO");
+    lv_obj_set_style_text_color(_navStatusLabel, rgb(HEX_MUTED), 0);
+    lv_label_set_text(_navStatusLabel, "NO PHONE");
     lv_obj_center(_navStatusLabel);
 
     // Maneuver vector icon container (128x128 centered horizontally)
@@ -1280,17 +1222,17 @@ void UiRenderer::buildTelemetryScreen(lv_obj_t* root) {
     _telInnerArc = createArcGauge(_telCont, 390, 2, HEX_DIVIDER, HEX_DIVIDER, 135, 45, 100);
     lv_obj_set_style_arc_opa(_telInnerArc, LV_OPA_TRANSP, LV_PART_INDICATOR);
 
-    // Header status (bike name suppressed)
-    _telHeaderLabel = createCenteredLabel(_telCont, getEuroFont14(), HEX_ESPMOTO_ORANGE, 56);
+    // Header connection status
+    _telHeaderLabel = createCenteredLabel(_telCont, getEuroFont14(), HEX_MUTED, 56);
     lv_obj_set_style_text_letter_space(_telHeaderLabel, 1, 0);
-    lv_label_set_text(_telHeaderLabel, "DEMO");
+    lv_label_set_text(_telHeaderLabel, "NO OBD");
 
     // Hero 72pt numeric RPM readout
-    _telRpmLabel = createCenteredLabel(_telCont, getHeroFont72(), HEX_WHITE, 82);
+    _telRpmLabel = createCenteredLabel(_telCont, getHeroFont72(), HEX_MUTED, 82);
     lv_obj_set_width(_telRpmLabel, 340);
-    lv_label_set_text(_telRpmLabel, "0");
+    lv_label_set_text(_telRpmLabel, "--");
 
-    _telUnitLabel = createCenteredLabel(_telCont, &lv_font_montserrat_16, HEX_ESPMOTO_ORANGE, 160);
+    _telUnitLabel = createCenteredLabel(_telCont, &lv_font_montserrat_16, HEX_MUTED, 160);
     lv_obj_set_style_text_letter_space(_telUnitLabel, 3, 0);
     lv_label_set_text(_telUnitLabel, "RPM");
 
@@ -1301,30 +1243,30 @@ void UiRenderer::buildTelemetryScreen(lv_obj_t* root) {
     lv_obj_set_style_bg_color(_telGearBadge, rgb(HEX_SURFACE), 0);
     lv_obj_set_style_bg_opa(_telGearBadge, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_telGearBadge, 3, 0);
-    lv_obj_set_style_border_color(_telGearBadge, rgb(HEX_GREEN), 0);
+    lv_obj_set_style_border_color(_telGearBadge, rgb(HEX_DIVIDER), 0);
     lv_obj_set_style_radius(_telGearBadge, 20, 0);
     lv_obj_remove_flag(_telGearBadge, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(_telGearBadge, LV_OBJ_FLAG_CLICKABLE);
 
     _telGearLabel = lv_label_create(_telGearBadge);
     lv_obj_set_style_text_font(_telGearLabel, &lv_font_montserrat_48, 0);
-    lv_obj_set_style_text_color(_telGearLabel, rgb(HEX_GREEN), 0);
-    lv_label_set_text(_telGearLabel, "N");
+    lv_obj_set_style_text_color(_telGearLabel, rgb(HEX_MUTED), 0);
+    lv_label_set_text(_telGearLabel, "--");
     lv_obj_center(_telGearLabel);
 
     // Bottom diagnostics: Engine Temp + Battery Volts
     _telTempLabel = lv_label_create(_telCont);
     lv_obj_set_style_text_font(_telTempLabel, &lv_font_montserrat_20, 0);
-    lv_obj_set_style_text_color(_telTempLabel, rgb(HEX_GREEN), 0);
+    lv_obj_set_style_text_color(_telTempLabel, rgb(HEX_MUTED), 0);
     lv_obj_align(_telTempLabel, LV_ALIGN_TOP_MID, -68, 338);
-    lv_label_set_text(_telTempLabel, "92\xC2\xB0" "C");
+    lv_label_set_text(_telTempLabel, "TEMP --");
     lv_obj_remove_flag(_telTempLabel, LV_OBJ_FLAG_CLICKABLE);
 
     _telVoltLabel = lv_label_create(_telCont);
     lv_obj_set_style_text_font(_telVoltLabel, &lv_font_montserrat_20, 0);
-    lv_obj_set_style_text_color(_telVoltLabel, rgb(HEX_GREEN), 0);
+    lv_obj_set_style_text_color(_telVoltLabel, rgb(HEX_MUTED), 0);
     lv_obj_align(_telVoltLabel, LV_ALIGN_TOP_MID, 68, 338);
-    lv_label_set_text(_telVoltLabel, "13.8V");
+    lv_label_set_text(_telVoltLabel, "VOLT --");
     lv_obj_remove_flag(_telVoltLabel, LV_OBJ_FLAG_CLICKABLE);
 
     _telAuxLabel = createCenteredLabel(_telCont, &lv_font_montserrat_16, HEX_SILVER, 372);
@@ -1338,41 +1280,35 @@ void UiRenderer::buildSettingsScreen(lv_obj_t* root) {
     lv_obj_t* bezel = createArcGauge(_settingsCont, 458, 2, HEX_TRACK_DARK, HEX_TRACK_DARK, 0, 360, 100);
     lv_obj_set_style_arc_opa(bezel, LV_OPA_TRANSP, LV_PART_INDICATOR);
 
-    lv_obj_t* title = createCenteredLabel(_settingsCont, &lv_font_montserrat_20, HEX_ESPMOTO_ORANGE, 76);
+    lv_obj_t* title = createCenteredLabel(_settingsCont, &lv_font_montserrat_20, HEX_ESPMOTO_ORANGE, 68);
     lv_label_set_text(title, "SETTINGS");
 
-    lv_obj_t* pairBtn = lv_button_create(_settingsCont);
-    lv_obj_set_size(pairBtn, 260, 64);
-    lv_obj_align(pairBtn, LV_ALIGN_CENTER, 0, -10);
-    lv_obj_set_style_bg_color(pairBtn, rgb(HEX_ESPMOTO_ORANGE), 0);
-    lv_obj_set_style_bg_opa(pairBtn, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(pairBtn, 32, 0);
-    lv_obj_set_style_border_width(pairBtn, 0, 0);
-    lv_obj_set_style_shadow_width(pairBtn, 0, 0);
-    lv_obj_add_event_cb(pairBtn, &UiRenderer::onSettingsPairClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t* sub = createCenteredLabel(_settingsCont, &lv_font_montserrat_16, HEX_SILVER, 110);
+    lv_label_set_text(sub, "Reset BLE phone pairing?");
 
-    lv_obj_t* pairLbl = lv_label_create(pairBtn);
-    lv_label_set_text(pairLbl, "SHOW PAIRING");
-    lv_obj_set_style_text_font(pairLbl, &lv_font_montserrat_20, 0);
-    lv_obj_set_style_text_color(pairLbl, rgb(HEX_WHITE), 0);
-    lv_obj_center(pairLbl);
+    auto makePromptCard = [&](int32_t yOffset, uint32_t accentHex, const char* text) {
+        lv_obj_t* card = lv_obj_create(_settingsCont);
+        lv_obj_set_size(card, 320, 60);
+        lv_obj_align(card, LV_ALIGN_CENTER, 0, yOffset);
+        lv_obj_set_style_bg_color(card, rgb(HEX_SURFACE), 0);
+        lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
+        lv_obj_set_style_radius(card, 30, 0);
+        lv_obj_set_style_border_width(card, 2, 0);
+        lv_obj_set_style_border_color(card, rgb(accentHex), 0);
+        lv_obj_set_style_shadow_width(card, 0, 0);
+        lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(card, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_t* backBtn = lv_button_create(_settingsCont);
-    lv_obj_set_size(backBtn, 160, 48);
-    lv_obj_align(backBtn, LV_ALIGN_BOTTOM_MID, 0, -56);
-    lv_obj_set_style_bg_color(backBtn, rgb(HEX_SURFACE), 0);
-    lv_obj_set_style_bg_opa(backBtn, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(backBtn, 24, 0);
-    lv_obj_set_style_border_width(backBtn, 2, 0);
-    lv_obj_set_style_border_color(backBtn, rgb(HEX_DIVIDER), 0);
-    lv_obj_set_style_shadow_width(backBtn, 0, 0);
-    lv_obj_add_event_cb(backBtn, &UiRenderer::onBackToMainClicked, LV_EVENT_CLICKED, this);
+        lv_obj_t* lbl = lv_label_create(card);
+        lv_label_set_text(lbl, text);
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
+        lv_obj_set_style_text_color(lbl, rgb(accentHex), 0);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_center(lbl);
+    };
 
-    lv_obj_t* backLbl = lv_label_create(backBtn);
-    lv_label_set_text(backLbl, "BACK");
-    lv_obj_set_style_text_font(backLbl, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(backLbl, rgb(HEX_SILVER), 0);
-    lv_obj_center(backLbl);
+    makePromptCard(-18, HEX_YELLOW, "YELLOW  \xE2\x80\xA2  RESET & QR");
+    makePromptCard(64, HEX_BLUE, "BLUE  \xE2\x80\xA2  BACK");
 }
 
 void UiRenderer::buildPairingScreen(lv_obj_t* root) {
@@ -1406,28 +1342,13 @@ void UiRenderer::buildPairingScreen(lv_obj_t* root) {
     _pairingSubtitleLabel = createCenteredLabel(_pairingCont, &lv_font_montserrat_14, HEX_SILVER, 352);
     lv_label_set_text(_pairingSubtitleLabel, "Open espMoto app -> Scan QR");
 
-    lv_obj_t* backBtn = lv_button_create(_pairingCont);
-    lv_obj_set_size(backBtn, 140, 42);
-    lv_obj_align(backBtn, LV_ALIGN_BOTTOM_MID, 0, -34);
-    lv_obj_set_style_bg_color(backBtn, rgb(HEX_SURFACE), 0);
-    lv_obj_set_style_bg_opa(backBtn, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(backBtn, 21, 0);
-    lv_obj_set_style_border_width(backBtn, 2, 0);
-    lv_obj_set_style_border_color(backBtn, rgb(HEX_DIVIDER), 0);
-    lv_obj_set_style_shadow_width(backBtn, 0, 0);
-    lv_obj_add_event_cb(backBtn, &UiRenderer::onBackToMainClicked, LV_EVENT_CLICKED, this);
-
-    lv_obj_t* backLbl = lv_label_create(backBtn);
-    lv_label_set_text(backLbl, "CANCEL");
-    lv_obj_set_style_text_font(backLbl, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(backLbl, rgb(HEX_SILVER), 0);
-    lv_obj_center(backLbl);
+    lv_obj_t* hintLbl = createCenteredLabel(_pairingCont, &lv_font_montserrat_14, HEX_MUTED, 392);
+    lv_label_set_text(hintLbl, "YELLOW: GPS  \xE2\x80\xA2  BLUE: OBD");
 }
 
 void UiRenderer::render(const NavState& nav,
                         const BikeTelemetry& bike,
                         bool phoneConnected,
-                        bool demoMode,
                         const ObdConfig* obdConfig) {
     if (!_initialized) {
         return;
@@ -1441,25 +1362,23 @@ void UiRenderer::render(const NavState& nav,
     }
 
     if (_page == ScreenPage::NAVIGATION) {
-        updateNavScreen(nav, phoneConnected, demoMode);
+        updateNavScreen(nav, phoneConnected);
     } else if (_page == ScreenPage::TELEMETRY) {
         ObdDisplayConfig displayCfg;
         if (obdConfig) {
             displayCfg = obdConfig->display;
         }
-        updateTelemetryScreen(bike, demoMode, displayCfg);
+        updateTelemetryScreen(bike, displayCfg);
     }
 }
 
 void UiRenderer::updateNavScreen(const NavState& nav,
-                                 bool phoneConnected,
-                                 bool demoMode) {
-    // Status pill (phone BLE connection takes priority over demo mode)
-    const char* statusText = phoneConnected ? "BLE OK" : (demoMode ? "DEMO" : "NO PHONE");
-    uint32_t statusHex = phoneConnected ? HEX_GREEN : (demoMode ? HEX_ESPMOTO_ORANGE : HEX_MUTED);
+                                 bool phoneConnected) {
+    const char* statusText = phoneConnected ? "BLE OK" : "NO PHONE";
+    uint32_t statusHex = phoneConnected ? HEX_GREEN : HEX_MUTED;
     lv_label_set_text(_navStatusLabel, statusText);
     lv_obj_set_style_text_color(_navStatusLabel, rgb(statusHex), 0);
-    lv_obj_set_style_border_color(_navStatusPill, rgb(demoMode || phoneConnected ? statusHex : HEX_DIVIDER), 0);
+    lv_obj_set_style_border_color(_navStatusPill, rgb(phoneConnected ? statusHex : HEX_DIVIDER), 0);
 
     // Maneuver icon
     std::string normStreet = normalizeUtf8Text(nav.street.c_str());
@@ -1496,7 +1415,6 @@ namespace {
 
 void formatMetricSlot(MetricId id,
                       const BikeTelemetry& bike,
-                      bool demoMode,
                       char* buf,
                       size_t bufSize,
                       uint32_t& outColorHex) {
@@ -1506,7 +1424,7 @@ void formatMetricSlot(MetricId id,
         return;
     }
 
-    const bool hasData = demoMode || !bike.obdConnected || bike.isValid(id);
+    const bool hasData = bike.obdConnected && bike.isValid(id);
     if (!hasData) {
         std::snprintf(buf, bufSize, "%s --", defaultMetricLabel(id));
         outColorHex = HEX_MUTED;
@@ -1572,7 +1490,7 @@ void formatMetricSlot(MetricId id,
 
 } // namespace
 
-void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode, const ObdDisplayConfig& display) {
+void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, const ObdDisplayConfig& display) {
     const uint16_t maxRpm = (display.maxRpm >= 1000) ? display.maxRpm : MAX_RPM;
     const uint16_t redlineRpm = (display.redlineRpm >= 1000) ? display.redlineRpm : 5500;
     const uint16_t amberRpm = static_cast<uint16_t>((static_cast<uint32_t>(redlineRpm) * 85U) / 100U);
@@ -1582,15 +1500,16 @@ void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode,
         _lastMaxRpm = maxRpm;
     }
 
-    int32_t rpmClamped = constrain(static_cast<int32_t>(bike.rpm), 0, static_cast<int32_t>(maxRpm));
-    uint32_t rpmArcHex = HEX_ESPMOTO_ORANGE;
-    uint32_t rpmNumHex = HEX_WHITE;
-    uint32_t rpmUnitHex = HEX_ESPMOTO_ORANGE;
-    if (rpmClamped >= redlineRpm) {
+    const bool rpmValid = bike.obdConnected && bike.isValid(MetricId::RPM);
+    int32_t rpmClamped = rpmValid ? constrain(static_cast<int32_t>(bike.rpm), 0, static_cast<int32_t>(maxRpm)) : 0;
+    uint32_t rpmArcHex = rpmValid ? HEX_ESPMOTO_ORANGE : HEX_TRACK_DARK;
+    uint32_t rpmNumHex = rpmValid ? HEX_WHITE : HEX_MUTED;
+    uint32_t rpmUnitHex = rpmValid ? HEX_ESPMOTO_ORANGE : HEX_MUTED;
+    if (rpmValid && rpmClamped >= redlineRpm) {
         rpmArcHex = HEX_RED;
         rpmNumHex = HEX_RED;
         rpmUnitHex = HEX_RED;
-    } else if (rpmClamped >= amberRpm) {
+    } else if (rpmValid && rpmClamped >= amberRpm) {
         rpmArcHex = HEX_AMBER;
         rpmNumHex = HEX_AMBER;
         rpmUnitHex = HEX_AMBER;
@@ -1599,14 +1518,18 @@ void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode,
     lv_arc_set_value(_telRpmArc, rpmClamped);
     lv_obj_set_style_arc_color(_telRpmArc, rgb(rpmArcHex), LV_PART_INDICATOR);
 
-    // Bike name suppressed: show only connection / demo status
-    const char* hdrText = demoMode ? "DEMO" : (bike.obdConnected ? "OBD OK" : "NO OBD");
-    uint32_t hdrHex = demoMode ? HEX_ESPMOTO_ORANGE : (bike.obdConnected ? HEX_GREEN : HEX_MUTED);
+    // Bike name suppressed: show only OBD connection status
+    const char* hdrText = bike.obdConnected ? "OBD OK" : "NO OBD";
+    uint32_t hdrHex = bike.obdConnected ? HEX_GREEN : HEX_MUTED;
     lv_label_set_text(_telHeaderLabel, hdrText);
     lv_obj_set_style_text_color(_telHeaderLabel, rgb(hdrHex), 0);
 
     char rpmBuf[16];
-    snprintf(rpmBuf, sizeof(rpmBuf), "%u", bike.rpm);
+    if (rpmValid) {
+        snprintf(rpmBuf, sizeof(rpmBuf), "%u", bike.rpm);
+    } else {
+        snprintf(rpmBuf, sizeof(rpmBuf), "--");
+    }
     lv_label_set_text(_telRpmLabel, rpmBuf);
     lv_obj_set_style_text_color(_telRpmLabel, rgb(rpmNumHex), 0);
     lv_obj_set_style_text_color(_telUnitLabel, rgb(rpmUnitHex), 0);
@@ -1619,7 +1542,7 @@ void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode,
         char centerBuf[12] = "--";
         uint32_t centerTextHex = HEX_WHITE;
         uint32_t centerBorderHex = HEX_ESPMOTO_ORANGE;
-        const bool centerValid = demoMode || !bike.obdConnected || bike.isValid(display.centerSlot);
+        const bool centerValid = bike.obdConnected && bike.isValid(display.centerSlot);
 
         if (!centerValid) {
             std::snprintf(centerBuf, sizeof(centerBuf), "--");
@@ -1644,7 +1567,7 @@ void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode,
             centerBorderHex = HEX_ESPMOTO_ORANGE;
             lv_obj_set_style_text_font(_telGearLabel, &lv_font_montserrat_24, 0);
         } else {
-            formatMetricSlot(display.centerSlot, bike, demoMode, centerBuf, sizeof(centerBuf), centerTextHex);
+            formatMetricSlot(display.centerSlot, bike, centerBuf, sizeof(centerBuf), centerTextHex);
             lv_obj_set_style_text_font(_telGearLabel, &lv_font_montserrat_20, 0);
         }
 
@@ -1656,14 +1579,14 @@ void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode,
     // Bottom Left slot
     char leftBuf[20];
     uint32_t leftHex = HEX_GREEN;
-    formatMetricSlot(display.bottomLeftSlot, bike, demoMode, leftBuf, sizeof(leftBuf), leftHex);
+    formatMetricSlot(display.bottomLeftSlot, bike, leftBuf, sizeof(leftBuf), leftHex);
     lv_label_set_text(_telTempLabel, leftBuf);
     lv_obj_set_style_text_color(_telTempLabel, rgb(leftHex), 0);
 
     // Bottom Right slot
     char rightBuf[20];
     uint32_t rightHex = HEX_GREEN;
-    formatMetricSlot(display.bottomRightSlot, bike, demoMode, rightBuf, sizeof(rightBuf), rightHex);
+    formatMetricSlot(display.bottomRightSlot, bike, rightBuf, sizeof(rightBuf), rightHex);
     lv_label_set_text(_telVoltLabel, rightBuf);
     lv_obj_set_style_text_color(_telVoltLabel, rgb(rightHex), 0);
 
@@ -1673,7 +1596,7 @@ void UiRenderer::updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode,
     } else {
         char auxBuf[24];
         uint32_t auxHex = HEX_SILVER;
-        formatMetricSlot(display.bottomCenterSlot, bike, demoMode, auxBuf, sizeof(auxBuf), auxHex);
+        formatMetricSlot(display.bottomCenterSlot, bike, auxBuf, sizeof(auxBuf), auxHex);
         lv_label_set_text(_telAuxLabel, auxBuf);
         lv_obj_set_style_text_color(_telAuxLabel, rgb(auxHex), 0);
         lv_obj_remove_flag(_telAuxLabel, LV_OBJ_FLAG_HIDDEN);

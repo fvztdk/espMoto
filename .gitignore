@@ -1,18 +1,9 @@
-# Environment
-.env
-
 # Separate Android repo
 android/
 
 # PlatformIO
 firmware/.pio/
 firmware/.vscode/
-firmware/lib/lvgl/
-
-# Simulator build & Python cache
-simulator/build/
-simulator/__pycache__/
-*.pyc
 
 # OS / Editor
 .DS_Store

@@ -1,12 +1,9 @@
 #include "obd_config.h"
 
+#include <Preferences.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
-#ifdef ARDUINO
-#include <Preferences.h>
-#endif
 
 namespace {
 
@@ -271,7 +268,6 @@ bool parseObdConfigJson(const char* json, ObdConfig& out) {
 }
 
 bool loadObdConfigFromNvs(ObdConfig& out) {
-#ifdef ARDUINO
     Preferences prefs;
     if (!prefs.begin(NVS_NAMESPACE, true)) {
         return false;
@@ -282,14 +278,9 @@ bool loadObdConfigFromNvs(ObdConfig& out) {
         return false;
     }
     return parseObdConfigJson(saved.c_str(), out);
-#else
-    (void)out;
-    return false;
-#endif
 }
 
 bool saveObdConfigToNvs(const char* json) {
-#ifdef ARDUINO
     if (!json) return false;
     Preferences prefs;
     if (!prefs.begin(NVS_NAMESPACE, false)) {
@@ -298,10 +289,6 @@ bool saveObdConfigToNvs(const char* json) {
     size_t written = prefs.putString(NVS_KEY_JSON, json);
     prefs.end();
     return written > 0;
-#else
-    (void)json;
-    return false;
-#endif
 }
 
 float evalObdFormula(const ObdParamConfig& param, const uint8_t* data, size_t len, bool* ok) {

@@ -13,18 +13,14 @@ enum class ScreenPage : uint8_t {
 
 class UiRenderer {
 public:
-    using ResetPairingCallback = void (*)(void* userData);
-
     void begin();
-    void nextPage();
     void setPage(ScreenPage page);
+    void returnToMain();
     ScreenPage currentPage() const { return _page; }
     void setPairingPayload(const char* payload, const char* subtitle = nullptr);
-    void setResetPairingCallback(ResetPairingCallback cb, void* userData = nullptr);
     void render(const NavState& nav,
                 const BikeTelemetry& bike,
                 bool phoneConnected,
-                bool demoMode,
                 const ObdConfig* obdConfig = nullptr);
 
 private:
@@ -71,11 +67,6 @@ private:
     // Settings & Pairing widgets
     lv_obj_t* _pairingQr = nullptr;
     lv_obj_t* _pairingSubtitleLabel = nullptr;
-    ResetPairingCallback _resetPairingCb = nullptr;
-    void* _resetPairingUserData = nullptr;
-    uint32_t _pressStartMs = 0;
-    bool _isPressing = false;
-    bool _longPressTriggered = false;
 
     // Persistent polyline buffers for LVGL line widgets
     lv_point_precise_t _shaftPts[8] = {};
@@ -97,12 +88,7 @@ private:
     void buildSettingsScreen(lv_obj_t* root);
     void buildPairingScreen(lv_obj_t* root);
     void updatePageVisibility();
-    void updateNavScreen(const NavState& nav, bool phoneConnected, bool demoMode);
-    void updateTelemetryScreen(const BikeTelemetry& bike, bool demoMode, const ObdDisplayConfig& display);
+    void updateNavScreen(const NavState& nav, bool phoneConnected);
+    void updateTelemetryScreen(const BikeTelemetry& bike, const ObdDisplayConfig& display);
     void updateManeuverIcon(ManeuverType type, uint8_t roundaboutExit, bool active);
-
-    static void onScreenClicked(lv_event_t* e);
-    static void onScreenTouchEvent(lv_event_t* e);
-    static void onSettingsPairClicked(lv_event_t* e);
-    static void onBackToMainClicked(lv_event_t* e);
 };
